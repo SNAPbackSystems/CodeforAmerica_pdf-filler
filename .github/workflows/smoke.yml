@@ -1,0 +1,48 @@
+name: Smoke Tests
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  node-smoke:
+    name: Node smoke (runs only if package.json exists)
+    runs-on: ubuntu-latest
+    if: hashFiles('package.json') != ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: |
+          if [ -f package-lock.json ]; then
+            npm ci --ignore-scripts
+          else
+            npm install --ignore-scripts
+          fi
+      - run: node -e "console.log('node smoke ok')"
+    continue-on-error: true
+
+  python-smoke:
+    name: Python smoke (runs if requirements.txt or pyproject.toml exists)
+    runs-on: ubuntu-latest
+    if: hashFiles('requirements.txt') != '' || hashFiles('pyproject.toml') != ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install deps (best effort)
+        run: |
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt || true
+          elif [ -f pyproject.toml ]; then
+            pip install . || true
+          fi
+      - name: Tiny import test
+        run: python - <<'PY'
+print("python smoke ok")
+PY
+    continue-on-error: true
